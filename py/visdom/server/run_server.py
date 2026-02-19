@@ -69,7 +69,7 @@ def start_server(
     app.sources = []
 
 
-def main(print_func=None):
+def main(print_func=None, _download_only=False):
     """
     Run a server from the command line, first parsing arguments from the
     command line
@@ -143,7 +143,20 @@ def main(print_func=None):
         action="store_true",
         help="Load data from filesystem when starting server (and not lazily upon first request).",
     )
+    parser.add_argument(
+        "--download_only",
+        default=False,
+        action="store_true",
+        help="Download all required scripts (JS, CSS, fonts) and exit "
+        "without starting the server. Useful for offline/air-gapped setups.",
+    )
     FLAGS = parser.parse_args()
+
+    download_scripts()
+
+    if FLAGS.download_only or _download_only:
+        print("Downloaded all required scripts. Exiting.")
+        return
 
     # Process base_url
     base_url = FLAGS.base_url if FLAGS.base_url != DEFAULT_BASE_URL else ""
@@ -232,8 +245,12 @@ def main(print_func=None):
 
 
 def download_scripts_and_run():
-    download_scripts()
     main()
+
+
+def download_only():
+    """Download all required scripts and exit without starting the server."""
+    main(_download_only=True)
 
 
 if __name__ == "__main__":
