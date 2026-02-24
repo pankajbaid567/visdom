@@ -10,15 +10,6 @@ updates:
         patterns:
           - "*"
 
-  # Maintain dependencies for Python (pip)
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    groups:
-      pip-updates:
-        patterns:
-          - "*"
 
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"

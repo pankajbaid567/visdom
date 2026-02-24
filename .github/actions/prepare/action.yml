@@ -55,10 +55,10 @@ runs:
             "**/node_modules"
             "/home/runner/.cache"
           key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
-      - name: "Install npm Dependencies"
+      - name: "Install yarn Dependencies"
         shell: bash
         run: |
-          npm install
+          yarn install --frozen-lockfile
 
       # load artifacts from previous runs
       - name: "Load built js-files"
