@@ -22,6 +22,7 @@ import logging
 import os
 import time
 import tornado.escape
+import tornado.websocket
 from collections import OrderedDict
 
 try:
@@ -347,14 +348,23 @@ def compare_envs(state, eids, socket, env_path=DEFAULT_ENV_PATH):
         "has_compare": True,
     }
     if "reload" in res:
-        socket.write_message(json.dumps({"command": "reload", "data": res["reload"]}))
+        try:
+            socket.write_message(json.dumps({"command": "reload", "data": res["reload"]}))
+        except tornado.websocket.WebSocketClosedError:
+            pass
 
     jsons = list(res.get("jsons", {}).values())
     windows = sorted(jsons, key=lambda k: ("i" not in k, k.get("i", None)))
     for v in windows:
-        socket.write_message(v)
+        try:
+            socket.write_message(v)
+        except tornado.websocket.WebSocketClosedError:
+            pass
 
-    socket.write_message(json.dumps({"command": "layout"}))
+    try:
+        socket.write_message(json.dumps({"command": "layout"}))
+    except tornado.websocket.WebSocketClosedError:
+        pass
     socket.eid = eids
 
 
@@ -365,15 +375,21 @@ def broadcast_envs(handler, target_subs=None):
     if target_subs is None:
         target_subs = handler.subs.values()
     for sub in target_subs:
-        sub.write_message(
-            json.dumps({"command": "env_update", "data": list(handler.state.keys())})
-        )
+        try:
+            sub.write_message(
+                json.dumps({"command": "env_update", "data": list(handler.state.keys())})
+            )
+        except tornado.websocket.WebSocketClosedError:
+            pass
 
 
 def send_to_sources(handler, msg):
     target_sources = handler.sources.values()
     for source in target_sources:
-        source.write_message(json.dumps(msg))
+        try:
+            source.write_message(json.dumps(msg))
+        except tornado.websocket.WebSocketClosedError:
+            pass
 
 
 def load_env(state, eid, socket, env_path=DEFAULT_ENV_PATH):
@@ -389,25 +405,37 @@ def load_env(state, eid, socket, env_path=DEFAULT_ENV_PATH):
                 state[eid] = env
 
     if "reload" in env:
-        socket.write_message(json.dumps({"command": "reload", "data": env["reload"]}))
+        try:
+            socket.write_message(json.dumps({"command": "reload", "data": env["reload"]}))
+        except tornado.websocket.WebSocketClosedError:
+            pass
 
     jsons = list(env.get("jsons", {}).values())
     windows = sorted(jsons, key=lambda k: ("i" not in k, k.get("i", None)))
     for v in windows:
-        socket.write_message(v)
+        try:
+            socket.write_message(v)
+        except tornado.websocket.WebSocketClosedError:
+            pass
 
-    socket.write_message(json.dumps({"command": "layout"}))
+    try:
+        socket.write_message(json.dumps({"command": "layout"}))
+    except tornado.websocket.WebSocketClosedError:
+        pass
     socket.eid = eid
 
 
 def broadcast(self, msg, eid):
     for s in self.subs:
-        if isinstance(self.subs[s].eid, dict):
-            if eid in self.subs[s].eid:
-                self.subs[s].write_message(msg)
-        else:
-            if self.subs[s].eid == eid:
-                self.subs[s].write_message(msg)
+        try:
+            if isinstance(self.subs[s].eid, dict):
+                if eid in self.subs[s].eid:
+                    self.subs[s].write_message(msg)
+            else:
+                if self.subs[s].eid == eid:
+                    self.subs[s].write_message(msg)
+        except tornado.websocket.WebSocketClosedError:
+            pass
 
 
 def register_window(self, p, eid):
