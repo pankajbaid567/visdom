@@ -347,49 +347,53 @@ def compare_envs(state, eids, socket, env_path=DEFAULT_ENV_PATH):
         "i": 1,
         "has_compare": True,
     }
+
     if "reload" in res:
+        safe_write_message(
+            socket,
+            json.dumps({"command": "reload", "data": res["reload"]}),
+            "compare_envs",
+        )
         try:
-            socket.write_message(json.dumps({"command": "reload", "data": res["reload"]}))
+            socket.write_message(
+                json.dumps({"command": "reload", "data": res["reload"]})
+            )
         except tornado.websocket.WebSocketClosedError:
             pass
 
     jsons = list(res.get("jsons", {}).values())
     windows = sorted(jsons, key=lambda k: ("i" not in k, k.get("i", None)))
     for v in windows:
-        try:
-            socket.write_message(v)
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        safe_write_message(socket, v, "compare_envs windows")
 
-    try:
-        socket.write_message(json.dumps({"command": "layout"}))
-    except tornado.websocket.WebSocketClosedError:
-        pass
+    safe_write_message(socket, json.dumps({"command": "layout"}), "compare_envs layout")
     socket.eid = eids
 
 
 # ------- Broadcasting functions ---------- #
 
 
+def safe_write_message(socket, msg, context=""):
+    """Safely write a message to a websocket, dropping if client is disconnected.
+    Logs debug information if writing fails."""
+    try:
+        socket.write_message(msg)
+    except tornado.websocket.WebSocketClosedError:
+        logging.debug(f"Failed to write to closed websocket in {context}")
+
+
 def broadcast_envs(handler, target_subs=None):
     if target_subs is None:
         target_subs = handler.subs.values()
     for sub in target_subs:
-        try:
-            sub.write_message(
-                json.dumps({"command": "env_update", "data": list(handler.state.keys())})
-            )
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        msg = json.dumps({"command": "env_update", "data": list(handler.state.keys())})
+        safe_write_message(sub, msg, "broadcast_envs")
 
 
 def send_to_sources(handler, msg):
     target_sources = handler.sources.values()
     for source in target_sources:
-        try:
-            source.write_message(json.dumps(msg))
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        safe_write_message(source, json.dumps(msg), "send_to_sources")
 
 
 def load_env(state, eid, socket, env_path=DEFAULT_ENV_PATH):
@@ -405,37 +409,34 @@ def load_env(state, eid, socket, env_path=DEFAULT_ENV_PATH):
                 state[eid] = env
 
     if "reload" in env:
-        try:
-            socket.write_message(json.dumps({"command": "reload", "data": env["reload"]}))
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        safe_write_message(
+            socket,
+            json.dumps({"command": "reload", "data": env["reload"]}),
+            "load_env reload",
+        )
 
     jsons = list(env.get("jsons", {}).values())
     windows = sorted(jsons, key=lambda k: ("i" not in k, k.get("i", None)))
     for v in windows:
-        try:
-            socket.write_message(v)
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        safe_write_message(socket, v, "load_env windows")
 
-    try:
-        socket.write_message(json.dumps({"command": "layout"}))
-    except tornado.websocket.WebSocketClosedError:
-        pass
+    safe_write_message(socket, json.dumps({"command": "layout"}), "load_env layout")
     socket.eid = eid
 
 
 def broadcast(self, msg, eid):
     for s in self.subs:
-        try:
-            if isinstance(self.subs[s].eid, dict):
-                if eid in self.subs[s].eid:
-                    self.subs[s].write_message(msg)
-            else:
-                if self.subs[s].eid == eid:
-                    self.subs[s].write_message(msg)
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        sub = self.subs[s]
+        should_send = False
+        if isinstance(sub.eid, dict):
+            if eid in sub.eid:
+                should_send = True
+        else:
+            if sub.eid == eid:
+                should_send = True
+
+        if should_send:
+            safe_write_message(sub, msg, "broadcast to subs")
 
 
 def register_window(self, p, eid):

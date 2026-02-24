@@ -32,6 +32,7 @@ from visdom.utils.server_utils import (
     send_to_sources,
     broadcast,
     escape_eid,
+    safe_write_message,
 )
 from visdom.server.defaults import MAX_SOCKET_WAIT
 
@@ -225,10 +226,11 @@ class VisSocketHandlerOrWrapper(AnySocketHandlerOrWrapper):
             self.close()
             return
         super().open("sources")
-        try:
-            self.write_message(json.dumps({"command": "alive", "data": "vis_alive"}))
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        safe_write_message(
+            self,
+            json.dumps({"command": "alive", "data": "vis_alive"}),
+            "VisSocketHandler open",
+        )
 
     def on_close(self):
         if self in list(self.sources.values()):
@@ -241,10 +243,9 @@ class VisSocketHandlerOrWrapper(AnySocketHandlerOrWrapper):
         if cmd == "echo":
             logging.info(f"from visdom client: {message}")
             for sub in self.sources.values():
-                try:
-                    sub.write_message(json.dumps(msg))
-                except tornado.websocket.WebSocketClosedError:
-                    pass
+                safe_write_message(
+                    sub, json.dumps(msg), "VisSocketHandler on_message echo"
+                )
             return
 
         super().on_message(message)
@@ -277,14 +278,10 @@ class SocketHandlerOrWrapper(AnySocketHandlerOrWrapper):
 
         super().open("subs")
 
-        try:
-            self.write_message(
-                json.dumps(
-                    {"command": "register", "data": self.sid, "readonly": self.readonly}
-                )
-            )
-        except tornado.websocket.WebSocketClosedError:
-            pass
+        msg = json.dumps(
+            {"command": "register", "data": self.sid, "readonly": self.readonly}
+        )
+        safe_write_message(self, msg, "SocketHandler open")
         self.broadcast_layouts([self])
         broadcast_envs(self, [self])
 
@@ -292,12 +289,8 @@ class SocketHandlerOrWrapper(AnySocketHandlerOrWrapper):
         if target_subs is None:
             target_subs = self.subs.values()
         for sub in target_subs:
-            try:
-                sub.write_message(
-                    json.dumps({"command": "layout_update", "data": self.app.layouts})
-                )
-            except tornado.websocket.WebSocketClosedError:
-                pass
+            msg = json.dumps({"command": "layout_update", "data": self.app.layouts})
+            safe_write_message(sub, msg, "SocketHandler broadcast_layouts")
 
     def initialize(self, app):
         super().initialize(app)
