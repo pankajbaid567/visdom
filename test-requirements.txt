@@ -1,5 +1,6 @@
 matplotlib
 numpy
 av
+pytest
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
