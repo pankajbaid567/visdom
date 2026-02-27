@@ -72,6 +72,6 @@ setup(
     install_requires=requirements,
     entry_points={'console_scripts': [
         'visdom=visdom.server.run_server:download_scripts_and_run',
-        'visdom-download=visdom.server.run_server:download_only',
+        'visdom-download=visdom.server.run_server:download_scripts_only',
     ]}
 )

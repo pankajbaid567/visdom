@@ -69,7 +69,7 @@ def start_server(
     app.sources = []
 
 
-def main(print_func=None, _download_only=False):
+def main(print_func=None):
     """
     Run a server from the command line, first parsing arguments from the
     command line
@@ -152,9 +152,8 @@ def main(print_func=None, _download_only=False):
     )
     FLAGS = parser.parse_args()
 
-    download_scripts()
-
-    if FLAGS.download_only or _download_only:
+    if FLAGS.download_only:
+        download_scripts()
         print("Downloaded all required scripts. Exiting.")
         return
 
@@ -245,12 +244,17 @@ def main(print_func=None, _download_only=False):
 
 
 def download_scripts_and_run():
+    download_scripts()
     main()
 
 
-def download_only():
-    """Download all required scripts and exit without starting the server."""
-    main(_download_only=True)
+def download_scripts_only():
+    """Download all required scripts and exit without starting the server.
+
+    This is the entry point for the ``visdom-download`` console script.
+    """
+    download_scripts()
+    print("Downloaded all required scripts. Exiting.")
 
 
 if __name__ == "__main__":
